@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: appdb
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  web:
+    build: .
+    env_file:
+      - .env
+    environment:
+      # override DATABASE_URL to use docker-compose DB for local dev
+      DATABASE_URL: postgres://postgres:postgres@db:5432/appdb
+      PORT: 8000
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    command: /app/scripts/start.sh
+
+volumes:
+  db_data:
