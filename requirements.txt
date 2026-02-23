@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+python-dotenv
+hashlib
+bcrypt
+PyJWT
+
+fastapi
+uvicorn
+openai
+python-dotenv
