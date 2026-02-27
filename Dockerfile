@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 # System packages needed for building some Python packages and libpq
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev curl gcc \
+    build-essential libpq-dev curl gcc libffi-dev libssl-dev python3-dev \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -103,6 +103,32 @@ def verify_token(token: str) -> Optional[int]:
     except Exception:
         return None  # invalid token
 
+def activate_user(db: Session, token: str) -> dict:
+    jwt_secret = os.getenv("SECRET_KEY", "dev-secret")
+    try:
+        return _extracted_from_activate_user(token, jwt_secret, db)
+    except jwt.ExpiredSignatureError as e:
+        raise HTTPException(
+            status_code=400, detail="Activation token has expired"
+        ) from e
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid activation token") from e
+
+
+# TODO Rename this here and in `activate_user`
+def _extracted_from_activate_user(token, jwt_secret, db):
+    payload = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+    user_id = payload.get("userId")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Invalid activation token")
+
+    if user := db.query(User).filter(User.id == user_id).first():
+        # Here you can set a field like `is_active` to True if you have it in your User model
+        # For this example, we'll just return a success message
+        return {"message": "User activated successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="User not found")
+
 
 def get_profile(db: Session, user_id: int) -> dict:
     try:

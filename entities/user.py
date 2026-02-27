@@ -43,6 +43,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), index=True, default=func.now())
     # last_login = Column(String, index=True)
     is_active = Column(Boolean, index=True, default=False)
+    is_verified = Column(Boolean, index=True, default=False, nullable=True)
 
     # # one-to-many: User -> Post
     # posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
@@ -74,6 +75,7 @@ class UserAdmin(Base):
     gender = Column(String, index=True, nullable=True)
     created_at = Column(DateTime(timezone=True), index=True, default=func.now())
     is_active = Column(Boolean, index=True, default=False)
+    is_verified = Column(Boolean, index=True, default=False, nullable=True)
 
 
 # class Post(Base):
