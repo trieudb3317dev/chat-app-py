@@ -83,3 +83,28 @@ class PasswordStr(BaseModel):
     
     # pass
     new_password: Optional[str] = None
+    
+
+# Chat schemas can be added here as needed, e.g. for messages, conversations, etc.
+class ChatCreate(BaseModel):
+    text: str
+    user_to_id: int
+    user_from_id: int
+    image_url: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+        
+class ChatOut(BaseModel):
+    id: int
+    text: str
+    user_to_id: int
+    user_from_id: int
+    image_url: Optional[str] = None
+    created_at: str  # or datetime if you want to parse it as a datetime object
+    un_read: int
+    is_seen: bool
+    is_sent: bool
+
+    class Config:
+        orm_mode = True

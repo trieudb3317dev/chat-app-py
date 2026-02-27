@@ -8,6 +8,7 @@ from middleware.request_logger import RequestLoggerMiddleware
 from controllers.root import router as root_router
 from controllers.user import router as user_router
 from controllers.admin import router as admin_router
+from scripts.auto_migrate import autogenerate_and_upgrade, should_auto_migrate
 
 app = FastAPI()
 
@@ -18,6 +19,18 @@ app.include_router(admin_router)
 
 # install middleware
 app.add_middleware(RequestLoggerMiddleware)
+
+
+@app.on_event("startup")
+def _maybe_auto_migrate():
+    # Run automatic autogenerate+upgrade only in development when explicitly enabled.
+    try:
+        if should_auto_migrate():
+            print("AUTO_MIGRATE enabled — running autogenerate+upgrade...")
+            autogenerate_and_upgrade()
+    except Exception as e:
+        # Do not crash the app on migration errors; surface the message in logs.
+        print("auto-migrate failed:", e)
 
 
 if __name__ == "__main__":

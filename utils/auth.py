@@ -16,6 +16,8 @@ def auth_required(request: Request):
     user_id = verify_token(token)
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    # activated user_id in request.state for access in route handlers
 
     # Attach user_id to request state for access in route handlers
     request.state.user_id = user_id
