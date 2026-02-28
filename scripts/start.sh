@@ -12,5 +12,10 @@ else
   echo "[startup] alembic not found, skipping migrations"
 fi
 
-# Start Gunicorn with Uvicorn worker
-exec gunicorn -k uvicorn.workers.UvicornWorker app:app --bind 0.0.0.0:${PORT} --workers 1 --log-level info
+# Start Gunicorn with Uvicorn worker if available, otherwise fall back to uvicorn
+if command -v gunicorn >/dev/null 2>&1; then
+  exec gunicorn -k uvicorn.workers.UvicornWorker app:app --bind 0.0.0.0:${PORT} --workers 1 --log-level info
+else
+  echo "[startup] gunicorn not found, falling back to 'uvicorn'"
+  exec uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1
+fi
