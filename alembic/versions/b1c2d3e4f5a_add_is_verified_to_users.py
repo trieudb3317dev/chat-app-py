@@ -16,14 +16,24 @@ depends_on = None
 
 
 def upgrade():
-    # idempotent raw SQL to add column if it doesn't exist
+    # idempotent raw SQL to add avatar_url and is_verified columns if they don't exist
+    # Use VARCHAR for text and BOOLEAN for flags — STRING is not a valid SQL type.
     op.execute("""
     ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT false;
+    ADD COLUMN IF NOT EXISTS avatar_url VARCHAR;
+    """)
+
+    op.execute("""
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT false;
     """)
 
 
 def downgrade():
+    op.execute("""
+    ALTER TABLE users
+    DROP COLUMN IF EXISTS avatar_url;
+    """)
     op.execute("""
     ALTER TABLE users
     DROP COLUMN IF EXISTS is_verified;

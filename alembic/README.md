@@ -18,6 +18,8 @@ Quick start:
 
    alembic upgrade head
 
+   python -m alembic upgrade <id>
+
 Notes:
 - env.py is configured to import the project's `Base` from `database.py` so autogenerate
   will pick up models under `Base.metadata`.
