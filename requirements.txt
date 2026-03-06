@@ -8,3 +8,8 @@ PyJWT
 openai
 alembic
 gunicorn
+websocket-client
+websockets
+pytest
+cloudinary 
+python-multipart

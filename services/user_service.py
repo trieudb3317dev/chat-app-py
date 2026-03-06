@@ -14,7 +14,7 @@ from entities import schemas as s
 import os, bcrypt
 import jwt
 from datetime import datetime, timedelta
-from services.mailer_service import send_welcome_email
+from services.mailer_service import send_welcome_email, send_reset_password_email
 
 
 def create_user(db: Session, user: s.UserCreate) -> dict:
@@ -103,6 +103,7 @@ def verify_token(token: str) -> Optional[int]:
     except Exception:
         return None  # invalid token
 
+
 def activate_user(db: Session, token: str) -> dict:
     jwt_secret = os.getenv("SECRET_KEY", "dev-secret")
     try:
@@ -118,13 +119,15 @@ def activate_user(db: Session, token: str) -> dict:
 # TODO Rename this here and in `activate_user`
 def _extracted_from_activate_user(token, jwt_secret, db):
     payload = jwt.decode(token, jwt_secret, algorithms=["HS256"])
-    user_id = payload.get("userId")
-    if not user_id:
+    sub = payload.get("sub")
+    if not sub:
         raise HTTPException(status_code=400, detail="Invalid activation token")
 
-    if user := db.query(User).filter(User.id == user_id).first():
-        # Here you can set a field like `is_active` to True if you have it in your User model
-        # For this example, we'll just return a success message
+    if user := db.query(User).filter(User.email == sub).first():
+        if user.is_verified:
+            return {"message": "User is already activated"}
+        user.is_verified = True
+        db.commit()
         return {"message": "User activated successfully"}
     else:
         raise HTTPException(status_code=404, detail="User not found")
@@ -142,6 +145,7 @@ def get_profile(db: Session, user_id: int) -> dict:
                 "phone_number": user.phone_number,
                 "date_of_birth": user.date_of_birth,
                 "gender": user.gender,
+                "avatar_url": user.avatar_url,
             }
         else:
             raise HTTPException(status_code=404, detail="User not found")
@@ -159,6 +163,28 @@ def update_profile(db: Session, user_id: int, profile_data: dict) -> dict:
         if isinstance(e, HTTPException):
             raise e  # re-raise HTTP exceptions as they are
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+def upload_avatar(db: Session, user_id: int, avatar_url: str) -> dict:
+    try:
+        return _extracted_from_upload_avatar(db, user_id, avatar_url)
+    except Exception as e:
+        db.rollback()
+        if isinstance(e, HTTPException):
+            raise e  # re-raise HTTP exceptions as they are
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+# TODO Rename this here and in `upload_avatar`
+def _extracted_from_upload_avatar(db, user_id, avatar_url):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(user)
+    return {"message": "Avatar updated successfully"}
 
 
 # TODO Rename this here and in `update_profile`
@@ -189,25 +215,31 @@ def refresh_access_token(
         raise HTTPException(status_code=404, detail="User not found")
 
     token_payload = {"userId": user.id, "username": user.username}
-    new_access_token = generate_token(token_payload, response, domain=domain)
-    new_refresh_token = generate_refresh_token(token_payload, response, domain=domain)
+    generate_token(token_payload, response, domain=domain)
+
+    # Check if the refresh token is not expire then don't generate a new one, otherwise generate a new refresh token
+    now = datetime.now(timezone.utc)
+    with contextlib.suppress(Exception):
+        payload = jwt.decode(
+            refresh_token, os.getenv("SECRET_KEY", "dev-secret"), algorithms=["HS256"]
+        )
+        exp = payload.get("exp")
+        if exp and datetime.fromtimestamp(exp, timezone.utc) > now:
+            return {"message": "Access token refreshed successfully"}
+
+    generate_refresh_token(token_payload, response, domain=domain)
 
     return {"message": "Access token refreshed successfully"}
 
 
-def reset_password(db: Session, email: str) -> dict:
-    user = db.query(User).filter(User.email == email).first()
+def reset_password(db: Session, user_id: int) -> dict:
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     # In a real application, generate a secure token and send a password reset link
     # For this example, we'll just send a simple notification
-    send_simple_notification(
-        user.email,
-        "Password Reset Request",
-        f"Hi {user.username}, we received a request to reset your password. If this was you, please follow the instructions to reset your password.",
-    )
-
+    send_reset_password_email(user.email, user.username, user.username)
     return {"message": "Password reset instructions sent to email"}
 
 
@@ -280,47 +312,3 @@ def generate_refresh_token(
     with contextlib.suppress(Exception):
         print("[debug] set-refresh-cookie header:", response.headers.get("set-cookie"))
     return token
-
-
-# def create_post(db: Session, user_id: int, title: str, content: str = "") -> Post:
-#     user = db.query(User).filter(User.id == user_id).first()
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     post = Post(title=title, content=content, author=user)
-#     db.add(post)
-#     db.commit()
-#     db.refresh(post)
-#     return post
-
-
-# def create_item(db: Session, name: str) -> Item:
-#     item = Item(name=name)
-#     db.add(item)
-#     db.commit()
-#     db.refresh(item)
-#     return item
-
-
-# def attach_item_to_user(db: Session, user_id: int, item_id: int):
-#     user = db.query(User).filter(User.id == user_id).first()
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     item = db.query(Item).filter(Item.id == item_id).first()
-#     if not item:
-#         raise HTTPException(status_code=404, detail="Item not found")
-#     if item not in user.items:
-#         user.items.append(item)
-#         db.commit()
-#     return user
-
-
-# def get_user_with_relations(db: Session, user_id: int):
-#     user = db.query(User).filter(User.id == user_id).first()
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return {
-#         "id": user.id,
-#         "name": user.name,
-#         "posts": [{"id": p.id, "title": p.title} for p in user.posts],
-#         "items": [{"id": it.id, "name": it.name} for it in user.items],
-#     }

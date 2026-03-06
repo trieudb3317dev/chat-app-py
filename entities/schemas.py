@@ -1,5 +1,6 @@
 from typing import List, Optional
-from pydantic import BaseModel
+import datetime
+from pydantic import BaseModel, Field
 
 
 class PostCreate(BaseModel):
@@ -63,6 +64,7 @@ class UserOut(BaseModel):
     date_of_birth: Optional[str] = None
     gender: Optional[str] = None
     role: Optional[str] = None
+    avatar_url: Optional[str] = None
     # posts: List[PostOut] = []
     # items: List[ItemOut] = []
 
@@ -101,10 +103,51 @@ class ChatOut(BaseModel):
     user_to_id: int
     user_from_id: int
     image_url: Optional[str] = None
-    created_at: str  # or datetime if you want to parse it as a datetime object
-    un_read: int
+    created_at: datetime.datetime
     is_seen: bool
     is_sent: bool
+    unread: int = 0
+
+    class Config:
+        orm_mode = True
+
+
+class ChatListOut(BaseModel):
+    items: List[ChatOut] = Field(default_factory=list)
+    total: int = 0
+    page: int = 1
+    per_page: int = 20
+    next_page: Optional[int] = None
+    prev_page: Optional[int] = None
+
+    class Config:
+        orm_mode = True
+        
+class FriendRequest(BaseModel):
+    friend_id: int
+
+    class Config:
+        orm_mode = True
+
+class FriendOut(BaseModel):
+    id: int
+    username: str
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    gender: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+        
+class FriendListOut(BaseModel):
+    friends: List[FriendOut] = Field(default_factory=list)
+    total: int = 0
+    page: int = 1
+    per_page: int = 20
+    next_page: Optional[int] = None
+    prev_page: Optional[int] = None
 
     class Config:
         orm_mode = True

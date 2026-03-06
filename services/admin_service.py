@@ -120,6 +120,7 @@ def get_profile(db: Session, user_id: int) -> dict:
                 "date_of_birth": user.date_of_birth,
                 "gender": user.gender,
                 "role": user.role if hasattr(user, "role") else None,
+                "avatar_url": user.avatar_url if hasattr(user, "avatar_url") else None,
             }
         else:
             raise HTTPException(status_code=404, detail="User not found")

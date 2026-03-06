@@ -16,15 +16,6 @@ from . import __init__  # keep package import
 from database import Base
 from enum import Enum
 
-# Association table for many-to-many between users and items
-# user_items = Table(
-#     "user_items",
-#     Base.metadata,
-#     Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
-#     Column("item_id", Integer, ForeignKey("items.id"), primary_key=True),
-# )
-
-
 class User(Base):
     __tablename__ = "users"
 
@@ -34,6 +25,7 @@ class User(Base):
     username = Column(String, index=True)
     password = Column(String, index=True)
     email = Column(String, unique=True, index=True)
+    avatar_url = Column(String, index=True, nullable=True)
     full_name = Column(String, index=True, nullable=True)
     address = Column(String, index=True, nullable=True)
     phone_number = Column(String, index=True, nullable=True)
@@ -66,6 +58,7 @@ class UserAdmin(Base):
     username = Column(String, index=True)
     password = Column(String, index=True)
     email = Column(String, unique=True, index=True)
+    avatar_url = Column(String, index=True, nullable=True)
     # Enum for user roles (optional, can also use a string column as above)
     role = Column(String, index=True, default=UserRole.ADMIN.value, nullable=False)
     full_name = Column(String, index=True, nullable=True)
@@ -76,25 +69,3 @@ class UserAdmin(Base):
     created_at = Column(DateTime(timezone=True), index=True, default=func.now())
     is_active = Column(Boolean, index=True, default=False)
     is_verified = Column(Boolean, index=True, default=False, nullable=True)
-
-
-# class Post(Base):
-#     __tablename__ = "posts"
-
-#     id = Column(Integer, primary_key=True, index=True)
-#     title = Column(String, index=True)
-#     content = Column(Text)
-
-#     # n-1 (many posts belong to one user)
-#     user_id = Column(Integer, ForeignKey("users.id"))
-#     author = relationship("User", back_populates="posts")
-
-
-# class Item(Base):
-#     __tablename__ = "items"
-
-#     id = Column(Integer, primary_key=True, index=True)
-#     name = Column(String, unique=True, index=True)
-
-#     # many-to-many reverse
-#     users = relationship("User", secondary=user_items, back_populates="items")

@@ -1,16 +1,32 @@
 # chat service
 import contextlib
 import os, sys
+from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))  # add
 
 from database import SessionLocal
 from entities.chat import Chat
 from services import ws_service
+from sqlalchemy import func
 
 
-def create_chat(user_to_id: int, user_from_id: int, text: str, image_url: str = None):
-    """Create a new chat message."""
+def create_chat(
+    user_to_id: int,
+    user_from_id: int,
+    text: str,
+    image_url: str = None,
+    *,
+    notify: bool = True,
+    mark_seen: bool = False,
+):
+    """Create a new chat message.
+
+    Parameters:
+    - notify: if True, send websocket notifications to recipient/sender.
+    - mark_seen: if True, mark the message as seen immediately (used when recipient
+      is currently viewing the chat) so unread count does not increase.
+    """
     db = SessionLocal()
     try:
         chat = Chat(
@@ -19,28 +35,58 @@ def create_chat(user_to_id: int, user_from_id: int, text: str, image_url: str = 
             text=text,
             image_url=image_url,
         )
+        if mark_seen:
+            # set seen before committing so DB reflects the seen status
+            chat.is_seen = True
+
         db.add(chat)
         db.commit()
         db.refresh(chat)
-        # notify recipient in real-time (non-blocking)
-        with contextlib.suppress(Exception):
-            ws_service.manager.send_personal_sync(
-                user_to_id,
-                {
-                    "type": "new_message",
-                    "chat_id": chat.id,
-                    "from": user_from_id,
-                    "text": chat.text,
-                },
-            )
-            # update unread count for recipient
-            unread = count_unread_chats_for_user(user_to_id)
-            ws_service.manager.send_personal_sync(
-                user_to_id, {"type": "unread_count", "count": unread}
-            )
+
+        if notify:
+            # notify recipient in real-time (non-blocking)
+            with contextlib.suppress(Exception):
+                _extracted_from_create_chat_36(
+                    user_to_id, chat, user_from_id, mark_seen
+                )
         return chat
     finally:
         db.close()
+
+
+# TODO Rename this here and in `create_chat`
+def _extracted_from_create_chat_36(user_to_id, chat, user_from_id, mark_seen):
+    ws_service.manager.send_personal_sync(
+        user_to_id,
+        {
+            "type": "new_message",
+            "chat_id": chat.id,
+            "from": user_from_id,
+            "text": chat.text,
+        },
+    )
+
+    # If recipient immediately saw the message, notify sender with message_seen
+    if mark_seen:
+        ws_service.manager.send_personal_sync(
+            user_from_id,
+            {
+                "type": "message_seen",
+                "chat_id": chat.id,
+                "by": user_to_id,
+            },
+        )
+
+    # update unread counts for both parties (client can decide what to do)
+    unread_recipient = count_unread_chats_for_user(user_to_id)
+    ws_service.manager.send_personal_sync(
+        user_to_id, {"type": "unread_count", "count": unread_recipient}
+    )
+
+    unread_sender = count_unread_chats_for_user(user_from_id)
+    ws_service.manager.send_personal_sync(
+        user_from_id, {"type": "unread_count", "count": unread_sender}
+    )
 
 
 def get_chats_for_user(user_id: int):
@@ -66,7 +112,7 @@ def mark_chat_as_seen(chat_id: int):
             db.commit()
             db.refresh(chat)
             # notify sender that recipient has seen the message
-            try:
+            with contextlib.suppress(Exception):
                 ws_service.manager.send_personal_sync(
                     chat.user_from_id,
                     {
@@ -76,12 +122,10 @@ def mark_chat_as_seen(chat_id: int):
                     },
                 )
                 # update unread count for sender
-                unread = count_unread_chats_for_user(chat.user_from_id)
+                unread = count_unread_chats_for_user_and_group_by_sender(chat.user_from_id)
                 ws_service.manager.send_personal_sync(
                     chat.user_from_id, {"type": "unread_count", "count": unread}
                 )
-            except Exception:
-                pass
             return chat
         return None
     finally:
@@ -97,28 +141,37 @@ def mark_chat_as_sent(chat_id: int):
             db.commit()
             db.refresh(chat)
             # notify sender or recipient about sent status
-            try:
+            with contextlib.suppress(Exception):
                 ws_service.manager.send_personal_sync(
                     chat.user_from_id,
                     {"type": "message_sent", "chat_id": chat.id},
                 )
-            except Exception:
-                pass
             return chat
         return None
     finally:
         db.close()
 
-
-def count_unread_chats_for_user(user_id: int):
+def count_unread_chats_for_user_and_group_by_sender(user_id: int) -> dict:
     """Count the number of unread chat messages for a given user."""
     db = SessionLocal()
     try:
-        return (
+        count = (
             db.query(Chat)
             .filter(Chat.user_to_id == user_id, Chat.is_seen == False)
             .count()
         )
+        # TODO: for a more advanced version, we could group by user_from_id to get counts per sender
+        sender_counts = (
+            db.query(Chat.user_from_id, func.count(Chat.id))
+            .filter(Chat.user_to_id == user_id, Chat.is_seen == False)
+            .group_by(Chat.user_from_id)
+            .all()
+        )
+        return {
+            "unread_count": count,
+            "user_id": user_id,
+            "sender_counts": dict(sender_counts),
+        }
     finally:
         db.close()
 
@@ -173,145 +226,86 @@ def get_chat_by_id(chat_id: int):
         db.close()
 
 
-def get_conversation_between_users(user1_id: int, user2_id: int):
+def get_conversation_between_users(
+    user1_id: int,
+    user2_id: int,
+    page: int = 1,
+    per_page: int = 20,
+    q: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_order: str = "asc",
+):
     """Get the conversation (chat messages) between two users."""
     db = SessionLocal()
     try:
-        return (
-            db.query(Chat)
-            .filter(
-                ((Chat.user_to_id == user1_id) & (Chat.user_from_id == user2_id))
-                | ((Chat.user_to_id == user2_id) & (Chat.user_from_id == user1_id))
-            )
-            .order_by(Chat.created_at.asc())
-            .all()
+        # build base query for messages between the two users
+        base_query = db.query(Chat).filter(
+            ((Chat.user_to_id == user1_id) & (Chat.user_from_id == user2_id))
+            | ((Chat.user_to_id == user2_id) & (Chat.user_from_id == user1_id))
         )
-    finally:
-        db.close()
 
+        # optional search on text
+        if q:
+            like = f"%{q}%"
+            base_query = base_query.filter(Chat.text.ilike(like))
 
-def get_recent_chats_for_user(user_id: int, limit: int = 20):
-    """Get the most recent chat messages for a given user."""
-    db = SessionLocal()
-    try:
-        return (
-            db.query(Chat)
-            .filter((Chat.user_to_id == user_id) | (Chat.user_from_id == user_id))
-            .order_by(Chat.created_at.desc())
-            .limit(limit)
-            .all()
+        # determine ordering safely (allow only certain fields)
+        allowed_sort_fields = {"created_at": Chat.created_at, "id": Chat.id}
+        sort_col = allowed_sort_fields.get(sort_by, Chat.created_at)
+        if sort_order.lower() == "desc":
+            order_clause = sort_col.desc()
+        else:
+            order_clause = sort_col.asc()
+
+        total = base_query.count()
+
+        # pagination
+        page = max(page, 1)
+        if per_page < 1:
+            per_page = 20
+        offset = (page - 1) * per_page
+
+        messages = (
+            base_query.order_by(order_clause).offset(offset).limit(per_page).all()
         )
-    finally:
-        db.close()
 
-
-def get_unread_chats_for_user(user_id: int):
-    """Get all unread chat messages for a given user."""
-    db = SessionLocal()
-    try:
-        return (
-            db.query(Chat)
-            .filter(Chat.user_to_id == user_id, Chat.is_seen == False)
-            .order_by(Chat.created_at.desc())
-            .all()
+        # build serialized list matching ChatOut schema
+        items = []
+        items.extend(
+            {
+                "id": message.id,
+                "text": message.text,
+                "user_to_id": message.user_to_id,
+                "user_from_id": message.user_from_id,
+                "image_url": message.image_url,
+                "created_at": message.created_at,
+                "is_seen": message.is_seen,
+                # unread — for the requesting user (user1_id) indicate unread status
+                "unread": (
+                    1 if (message.user_to_id == user1_id and not message.is_seen) else 0
+                ),
+                # is_sent: True when message was sent by the requester
+                "is_sent": (
+                    True if (message.user_from_id == user1_id) else message.is_sent
+                ),
+            }
+            for message in messages
         )
-    finally:
-        db.close()
+        # next/prev page calculation
+        next_page = page + 1 if offset + len(items) < total else None
+        prev_page = page - 1 if page > 1 else None
 
+        if not items:
+            # ensure we always return the expected structure even if no messages
+            items = []
 
-def get_sent_chats_for_user(user_id: int):
-    """Get all chat messages sent by a given user."""
-    db = SessionLocal()
-    try:
-        return (
-            db.query(Chat)
-            .filter(Chat.user_from_id == user_id)
-            .order_by(Chat.created_at.desc())
-            .all()
-        )
-    finally:
-        db.close()
-
-
-def get_received_chats_for_user(user_id: int):
-    """Get all chat messages received by a given user."""
-    db = SessionLocal()
-    try:
-        return (
-            db.query(Chat)
-            .filter(Chat.user_to_id == user_id)
-            .order_by(Chat.created_at.desc())
-            .all()
-        )
-    finally:
-        db.close()
-
-
-def get_chats_for_user_paginated(user_id: int, page: int = 1, per_page: int = 20):
-    """Get paginated chat messages for a given user."""
-    db = SessionLocal()
-    try:
-        total = (
-            db.query(Chat)
-            .filter((Chat.user_to_id == user_id) | (Chat.user_from_id == user_id))
-            .count()
-        )
-        chats = (
-            db.query(Chat)
-            .filter((Chat.user_to_id == user_id) | (Chat.user_from_id == user_id))
-            .order_by(Chat.created_at.desc())
-            .offset((page - 1) * per_page)
-            .limit(per_page)
-            .all()
-        )
         return {
-            "items": chats,
+            "items": items,
             "total": total,
             "page": page,
             "per_page": per_page,
+            "next_page": next_page,
+            "prev_page": prev_page,
         }
-    finally:
-        db.close()
-
-def get_conversations_for_user(user_id: int):
-    """Get a list of conversations for a given user, where each conversation is represented by the most recent chat message between the user and another user."""
-    db = SessionLocal()
-    try:
-        # Get the most recent chat message for each conversation (grouped by the other user)
-        conversations = (
-            db.query(Chat)
-            .filter((Chat.user_to_id == user_id) | (Chat.user_from_id == user_id))
-            .order_by(Chat.created_at.desc())
-            .all()
-        )
-        # Group chats by the other user
-        conversation_dict = {}
-        for chat in conversations:
-            other_user_id = chat.user_from_id if chat.user_to_id == user_id else chat.user_to_id
-            if other_user_id not in conversation_dict:
-                conversation_dict[other_user_id] = chat  # store the most recent chat for this conversation
-        return list(conversation_dict.values())
-    finally:
-        db.close()
-        
-def get_conversation_partners_for_user(user_id: int):
-    """Get a list of unique conversation partners (other user IDs) for a given user."""
-    db = SessionLocal()
-    try:
-        sent_partners = (
-            db.query(Chat.user_to_id)
-            .filter(Chat.user_from_id == user_id)
-            .distinct()
-            .all()
-        )
-        received_partners = (
-            db.query(Chat.user_from_id)
-            .filter(Chat.user_to_id == user_id)
-            .distinct()
-            .all()
-        )
-        # Combine and deduplicate partner IDs
-        partner_ids = {partner[0] for partner in sent_partners + received_partners}
-        return list(partner_ids)
     finally:
         db.close()
