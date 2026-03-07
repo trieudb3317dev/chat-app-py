@@ -56,16 +56,12 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                     history = chat_service.get_conversation_between_users(
                         user_id, chat_with, page=1, per_page=50
                     )
-                    print(
-                        f"Sending history to user {user_id} for chat with {chat_with}: {history}"
-                    )
                     # service may return a paginated dict or a plain list
                     raw_messages = (
                         history.get("items", [])
                         if isinstance(history, dict)
                         else history
                     )
-
                     # ensure datetimes are JSON-serializable
                     def serialize_messages(items):
                         out = []
