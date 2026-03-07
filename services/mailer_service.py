@@ -2,6 +2,7 @@ import contextlib
 import os
 import smtplib
 import ssl
+import socket
 from email.message import EmailMessage
 from typing import Optional
 import jwt
@@ -88,6 +89,28 @@ def send_email(
     if html:
         msg.add_alternative(html, subtype="html")
 
+    # quick network-level connect test to detect platform-level SMTP blocks
+    try:
+        sock_timeout = float(os.getenv("MAILER_CONNECT_TIMEOUT", "5"))
+        socket.create_connection((cfg["host"], cfg["port"]), timeout=sock_timeout).close()
+    except Exception as conn_err:
+        # likely outbound SMTP blocked or DNS issue in the hosting environment
+        with contextlib.suppress(Exception):
+            if os.getenv("MAILER_DEBUG", "0").lower() in ("1", "true", "yes"):
+                print(f"[mailer] network connect to {cfg['host']}:{cfg['port']} failed: {conn_err}")
+
+        if sendgrid_key := os.getenv("SENDGRID_API_KEY"):
+            try:
+                return _send_via_sendgrid(sendgrid_key, cfg.get("from"), recipient, subject, body, html)
+            except Exception:
+                with contextlib.suppress(Exception):
+                    if os.getenv("MAILER_DEBUG", "0").lower() in ("1", "true", "yes"):
+                        import traceback
+
+                        print("[mailer] sendgrid fallback failed")
+                        traceback.print_exc()
+        return False
+
     try:
         if cfg["use_ssl"]:
             context = ssl.create_default_context()
@@ -113,6 +136,36 @@ def send_email(
 
                 traceback.print_exc()
         return False
+
+
+def _send_via_sendgrid(api_key: str, from_email: str, to_email: str, subject: str, text: str, html: Optional[str] = None) -> bool:
+    """Send email via SendGrid HTTP API as a fallback when SMTP is blocked.
+
+    Requires SENDGRID_API_KEY env var. Uses requests; raises on unexpected errors.
+    """
+    try:
+        import requests
+
+        payload = {
+            "personalizations": [{"to": [{"email": to_email}]}],
+            "from": {"email": from_email},
+            "subject": subject,
+            "content": [{"type": "text/plain", "value": text}],
+        }
+        if html:
+            payload["content"] = [
+                {"type": "text/plain", "value": text},
+                {"type": "text/html", "value": html},
+            ]
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        resp = requests.post("https://api.sendgrid.com/v3/mail/send", headers=headers, json=payload, timeout=10)
+        return resp.status_code in {200, 202}
+    except Exception:
+        # bubble up to caller for logging
+        raise
 
 
 def _build_action_link(token: str, action: str = "activate") -> str:
