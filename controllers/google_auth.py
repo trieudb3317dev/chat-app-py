@@ -31,7 +31,11 @@ def on_startup():
 # Load credentials from environment variables or a JSON file
 CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI = "https://chat-app-py-production.up.railway.app/api/v1/auth/google/callback"  # Must match Google Cloud Console URI
+# Allow overriding redirect URI via environment (useful for deploy vs local).
+REDIRECT_URI = os.environ.get(
+    "GOOGLE_REDIRECT_URI",
+    "http://localhost:8000/api/v1/auth/google/callback",
+)
 
 # Valid scopes for basic profile/email info. Do NOT use plain https://www.googleapis.com which is invalid.
 SCOPES = [
@@ -44,11 +48,31 @@ SCOPES = [
 def _make_flow(state: Optional[str] = None) -> Flow:
     """Create a new Flow instance for each request."""
     # Create a fresh Flow per request (do not reuse a module-level Flow instance).
-    flow = Flow.from_client_secrets_file(
-        "client_secret.json",
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI,
-    )
+    # First try to load the client_secret.json file (useful for local dev).
+    try:
+        flow = Flow.from_client_secrets_file(
+            "client_secret.json",
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI,
+        )
+    except FileNotFoundError as e:
+        # When deploying we often don't commit client_secret.json. In that case
+        # construct a client config from environment variables (CLIENT_ID, CLIENT_SECRET)
+        # and use Flow.from_client_config.
+        if not (CLIENT_ID and CLIENT_SECRET):
+            raise FileNotFoundError(
+                "client_secret.json not found and GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET not set"
+            ) from e
+
+        client_config = {
+            "web": {
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+            }
+        }
+        flow = Flow.from_client_config(client_config, scopes=SCOPES, redirect_uri=REDIRECT_URI)
     if state:
         # If state is provided, set it so the flow will accept it on fetch
         with contextlib.suppress(Exception):
