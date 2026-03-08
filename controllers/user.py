@@ -1,15 +1,11 @@
 from fastapi import APIRouter, Depends, Response, Request, HTTPException
 from sqlalchemy.orm import Session
-import os, jwt
-import cloudinary
 from fastapi import UploadFile, File
 import logging
 
 from database import get_db, init_db
 from entities import schemas as s
 from services import user_service
-from services import friend_service
-from services import chat_service
 from services import cloudinary_service
 from utils.auth import get_current_user_id, auth_required
 from utils.limit import rate_limit
