@@ -6,3 +6,4 @@ env/
 pip-wheel-metadata/
 *.env
 .env
+/client_secret.json
