@@ -26,7 +26,7 @@ def get_user_or_404(db: Session, user_id: int):
 @router.post(
     "/admin/register",
     response_model=s.MessageOut,
-    dependencies=[Depends(rate_limit(max_requests=3, window_seconds=60))],
+    dependencies=[Depends(rate_limit(max_requests=100, window_seconds=60))],
 )
 def create_user_admin(user: s.UserCreate, db: Session = Depends(get_db)):
     """Create a new admin user and return a simple message on success or an HTTP error on failure."""
@@ -36,7 +36,7 @@ def create_user_admin(user: s.UserCreate, db: Session = Depends(get_db)):
 @router.post(
     "/admin/login",
     response_model=s.MessageOut,
-    dependencies=[Depends(rate_limit(max_requests=3, window_seconds=60))],
+    dependencies=[Depends(rate_limit(max_requests=100, window_seconds=60))],
 )
 def login_user_admin(
     user: s.UserLogin,
@@ -56,7 +56,7 @@ def login_user_admin(
 @router.post(
     "/admin/logout",
     response_model=s.MessageOut,
-    dependencies=[Depends(rate_limit(max_requests=5, window_seconds=60))],
+    dependencies=[Depends(rate_limit(max_requests=1000, window_seconds=60))],
 )
 def logout_user_admin(response: Response):
     """Logout an admin user by clearing the authentication cookies."""
@@ -68,7 +68,7 @@ def logout_user_admin(response: Response):
     response_model=s.UserOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=5, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
 )
 def get_profile_admin(
@@ -85,7 +85,7 @@ def get_profile_admin(
     response_model=s.MessageOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=5, window_seconds=60))
+        Depends(rate_limit(max_requests=1000, window_seconds=60))
     ],
 )
 def update_profile_admin(
@@ -106,7 +106,7 @@ def update_profile_admin(
     response_model=s.MessageOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=5, window_seconds=60))
+        Depends(rate_limit(max_requests=1000, window_seconds=60))
     ],
 )
 def refresh_access_token_admin(
@@ -126,7 +126,7 @@ def refresh_access_token_admin(
     response_model=s.MessageOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=5, window_seconds=60))
+        Depends(rate_limit(max_requests=1000, window_seconds=60))
     ],
 )
 def reset_password_admin(
@@ -143,7 +143,7 @@ def reset_password_admin(
     response_model=s.MessageOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=5, window_seconds=60))  
+        Depends(rate_limit(max_requests=1000, window_seconds=60))  
     ],
 )
 def change_password_admin(
@@ -162,7 +162,7 @@ def change_password_admin(
     dependencies=[
         Depends(auth_required),
         Depends(require_role("admin", "super_admin")),
-        Depends(rate_limit(max_requests=5, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
 )
 def delete_user_admin(
@@ -179,7 +179,7 @@ def delete_user_admin(
     dependencies=[
         Depends(auth_required),
         Depends(require_role("admin", "super_admin")),
-        Depends(rate_limit(max_requests=10, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
     # In the FastAPI framework, the `response_model` parameter in a route decorator specifies the
     # Pydantic model that should be used to serialize the response data returned by that route.

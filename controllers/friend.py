@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/v1", tags=["friends"])
     response_model=s.MessageOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=5, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
 )
 def add_friend(
@@ -36,7 +36,7 @@ def add_friend(
     response_model=s.MessageOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=5, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
 )
 def accept_friend(
@@ -57,7 +57,7 @@ def accept_friend(
     response_model=s.FriendListOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=10, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
 )
 def list_friends(

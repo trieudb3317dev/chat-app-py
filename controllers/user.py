@@ -28,7 +28,7 @@ def get_user_or_404(db: Session, user_id: int):
 def create_user(
     user: s.UserCreate,
     db: Session = Depends(get_db),
-    _rl: None = Depends(rate_limit(max_requests=5, window_seconds=60)),
+    _rl: None = Depends(rate_limit(max_requests=100, window_seconds=60)),
 ):
     """Create a new user and return a simple message on success or an HTTP error on failure."""
     return user_service.create_user(db, user)
@@ -37,7 +37,7 @@ def create_user(
 @router.post(
     "/users/login",
     response_model=s.MessageOut,
-    dependencies=[Depends(rate_limit(max_requests=5, window_seconds=60))],
+    dependencies=[Depends(rate_limit(max_requests=100, window_seconds=60))],
 )
 def login_user(
     user: s.UserLogin,
@@ -60,7 +60,7 @@ def login_user(
 @router.post(
     "/users/activate",
     response_model=s.MessageOut,
-    dependencies=[Depends(rate_limit(max_requests=5, window_seconds=60))],
+    dependencies=[Depends(rate_limit(max_requests=100, window_seconds=60))],
 )
 def activate_user(token: str, db: Session = Depends(get_db)):
     """Activate a user account using the provided activation token."""
@@ -70,7 +70,7 @@ def activate_user(token: str, db: Session = Depends(get_db)):
 @router.post(
     "/users/logout",
     response_model=s.MessageOut,
-    dependencies=[Depends(rate_limit(max_requests=5, window_seconds=60))],
+    dependencies=[Depends(rate_limit(max_requests=1000, window_seconds=60))],
 )
 def logout_user(response: Response):
     """Logout a user by clearing the authentication cookies."""
@@ -82,7 +82,7 @@ def logout_user(response: Response):
     response_model=s.UserOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=5, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
 )
 def get_current_user(request: Request, db: Session = Depends(get_db)):
@@ -107,7 +107,7 @@ def update_current_user(
     profile_data: s.UserUpdate,
     request: Request,
     db: Session = Depends(get_db),
-    _rl: None = Depends(rate_limit(max_requests=10, window_seconds=60)),
+    _rl: None = Depends(rate_limit(max_requests=1000, window_seconds=60)),
 ):
     """Update the profile of the currently authenticated user.
 
@@ -122,7 +122,7 @@ def update_current_user(
 @router.post(
     "/users/refresh-token",
     response_model=s.MessageOut,
-    dependencies=[Depends(rate_limit(max_requests=10, window_seconds=60))],
+    dependencies=[Depends(rate_limit(max_requests=1000, window_seconds=60))],
 )
 def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
     """Refresh the access token using the refresh token cookie.
@@ -141,7 +141,7 @@ def refresh_token(request: Request, response: Response, db: Session = Depends(ge
     response_model=s.MessageOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=5, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
 )
 def reset_password(request: Request, db: Session = Depends(get_db)):
@@ -158,7 +158,7 @@ def reset_password(request: Request, db: Session = Depends(get_db)):
     response_model=s.MessageOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=5, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
 )
 def change_password(request: Request, new_password: str, db: Session = Depends(get_db)):
@@ -175,7 +175,7 @@ def change_password(request: Request, new_password: str, db: Session = Depends(g
     "/users/upload-avatar",
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=5, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
 )
 def upload_avatar(

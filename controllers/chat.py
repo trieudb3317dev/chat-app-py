@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/v1", tags=["chat"])
     response_model=s.ChatListOut,
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=10, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
 )
 def get_conversation_with(
@@ -50,7 +50,7 @@ def get_conversation_with(
     "/chats/unread/count",
     dependencies=[
         Depends(auth_required),
-        Depends(rate_limit(max_requests=10, window_seconds=60)),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
     ],
 )
 def count_unread_chats_for_user(request: Request):
