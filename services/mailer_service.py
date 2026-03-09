@@ -241,6 +241,29 @@ def send_welcome_email(recipient: str, username: Optional[str] = None) -> bool:
     )
     return send_email(subject, recipient, text, html)
 
+def send_welcome_email_with_google(recipient: str, username: Optional[str] = None) -> bool:
+
+    # create token to activate account (in real implementation, this should be a real token linked to the user)
+    jwt_secret = os.getenv("SECRET_KEY", "dev-secret")
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(seconds=300)  # token valid for 5 minutes
+    payload = {"sub": recipient}
+    token = jwt.encode(
+        {**payload, "exp": exp, "iat": now}, jwt_secret, algorithm="HS256"
+    )
+
+    subject = "Welcome to our service!"
+    text = f"Hi {username or ''}\n\nWelcome to our service! We're glad to have you on board.\n\nBest regards,\nThe Team"
+    html = (
+        f"<p>Hi {username or ''},</p>"
+        f"<p>Welcome to our service! We're glad to have you on board.</p>"
+        f"<p>Password: {username or ''} - Please change it after login to something more secure.</p>"
+        f"<p>Activate your account by clicking the link below:</p>"
+        f'<p><a href="{_build_action_link(token, action="activate")}">Activate account</a></p>'
+        f"<p>Best regards,<br>The Team</p>"
+    )
+    return send_email(subject, recipient, text, html)
+
 
 if __name__ == "__main__":
     # Small manual test — will attempt to send using env SMTP settings
