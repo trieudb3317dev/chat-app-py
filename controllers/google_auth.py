@@ -49,20 +49,12 @@ def _make_flow(state: Optional[str] = None) -> Flow:
     """Create a new Flow instance for each request."""
     # Create a fresh Flow per request (do not reuse a module-level Flow instance).
     # First try to load the client_secret.json file (useful for local dev).
-    try:
-        flow = Flow.from_client_secrets_file(
-            "client_secret.json",
-            scopes=SCOPES,
-            redirect_uri=REDIRECT_URI,
-        )
-    except FileNotFoundError as e:
+    with contextlib.suppress(Exception):
         # When deploying we often don't commit client_secret.json. In that case
         # construct a client config from environment variables (CLIENT_ID, CLIENT_SECRET)
         # and use Flow.from_client_config.
         if not (CLIENT_ID and CLIENT_SECRET):
-            raise FileNotFoundError(
-                "client_secret.json not found and GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET not set"
-            ) from e
+            raise Exception("CLIENT_ID and CLIENT_SECRET must be set in environment")
 
         client_config = {
             "web": {
@@ -72,7 +64,10 @@ def _make_flow(state: Optional[str] = None) -> Flow:
                 "token_uri": "https://oauth2.googleapis.com/token",
             }
         }
-        flow = Flow.from_client_config(client_config, scopes=SCOPES, redirect_uri=REDIRECT_URI)
+        flow = Flow.from_client_config(
+            client_config, scopes=SCOPES, redirect_uri=REDIRECT_URI
+        )
+
     if state:
         # If state is provided, set it so the flow will accept it on fetch
         with contextlib.suppress(Exception):
