@@ -32,6 +32,55 @@ def add_friend(
 
 
 @router.post(
+    "/friends/remove",
+    response_model=s.MessageOut,
+    dependencies=[
+        Depends(auth_required),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
+    ],
+)
+def remove_friend(
+    friend_request: s.FriendRequest,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """Remove a friend relationship with the specified friend_id."""
+    try:
+        friend_service.remove_friend(db, user_id, friend_request.friend_id)
+        return {"message": "Friend removed"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get(
+    "/friends/requests",
+    dependencies=[
+        Depends(auth_required),
+        Depends(rate_limit(max_requests=1000, window_seconds=60)),
+    ],
+)
+def list_friend_requests(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=200),
+    q: str = None,
+):
+    """List pending friend requests for the current user."""
+    result = friend_service.list_unaccepted_friend_requests(
+        db, user_id, page=page, per_page=per_page, q=q
+    )
+    return {
+        "friends": result.get("friends", []),
+        "total": int(result.get("total", 0)),
+        "page": int(result.get("page", page)),
+        "per_page": int(result.get("per_page", per_page)),
+        "next_page": result.get("next_page"),
+        "prev_page": result.get("prev_page"),
+    }
+
+
+@router.post(
     "/friends/accept",
     response_model=s.MessageOut,
     dependencies=[
@@ -70,6 +119,56 @@ def list_friends(
     """List all friends for the current user."""
     result = friend_service.list_friends(db, user_id, page=page, per_page=per_page, q=q)
     # ensure we always return the expected structure
+    return {
+        "friends": result.get("friends", []),
+        "total": int(result.get("total", 0)),
+        "page": int(result.get("page", page)),
+        "per_page": int(result.get("per_page", per_page)),
+        "next_page": result.get("next_page"),
+        "prev_page": result.get("prev_page"),
+    }
+
+
+@router.get(
+    "/friends/suggestions",
+    response_model=s.FriendListOut,
+    dependencies=[Depends(auth_required)],
+)
+def list_friend_suggestions(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=200),
+):
+    """List friend suggestions for the current user."""
+    result = friend_service.list_friend_suggestions(
+        db, user_id, page=page, per_page=per_page
+    )
+    return {
+        "friends": result.get("friends", []),
+        "total": int(result.get("total", 0)),
+        "page": int(result.get("page", page)),
+        "per_page": int(result.get("per_page", per_page)),
+        "next_page": result.get("next_page"),
+        "prev_page": result.get("prev_page"),
+    }
+
+
+@router.get(
+    "/friends/unfriended",
+    response_model=s.FriendListOut,
+    dependencies=[Depends(auth_required)],
+)
+def list_unfriended_users(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=200),
+):
+    """List users who are not friends with the current user."""
+    result = friend_service.list_unfriended_users(
+        db, user_id, page=page, per_page=per_page
+    )
     return {
         "friends": result.get("friends", []),
         "total": int(result.get("total", 0)),
