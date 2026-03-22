@@ -20,6 +20,7 @@ class UserCreate(BaseModel):
     
     class Config:
         orm_mode = True
+        from_attributes = True  # allow population from ORM objects
     
 class UserUpdate(BaseModel):
     email: Optional[str] = None
@@ -32,6 +33,7 @@ class UserUpdate(BaseModel):
     
     class Config:
         orm_mode = True
+        from_attributes = True  # allow population from ORM objects
 
 class UserLogin(BaseModel):
     username: str
@@ -44,6 +46,7 @@ class PostOut(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True  # allow population from ORM objects
 
 
 class ItemOut(BaseModel):
@@ -52,6 +55,7 @@ class ItemOut(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True  # allow population from ORM objects
 
 
 class UserOut(BaseModel):
@@ -70,6 +74,7 @@ class UserOut(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True  # allow population from ORM objects
 
 
 class MessageOut(BaseModel):
@@ -79,7 +84,8 @@ class MessageOut(BaseModel):
 
     class Config:
         orm_mode = True
-        
+        from_attributes = True  # allow population from ORM objects
+
 class PasswordStr(BaseModel):
     """Custom type for password fields to allow for future validation or hashing logic."""
     
@@ -96,7 +102,8 @@ class ChatCreate(BaseModel):
 
     class Config:
         orm_mode = True
-        
+        from_attributes = True  # allow population from ORM objects
+
 class ChatOut(BaseModel):
     id: int
     text: str
@@ -110,6 +117,7 @@ class ChatOut(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True  # allow population from ORM objects
 
 
 class ChatListOut(BaseModel):
@@ -122,12 +130,13 @@ class ChatListOut(BaseModel):
 
     class Config:
         orm_mode = True
-        
+        from_attributes = True  # allow population from ORM objects
 class FriendRequest(BaseModel):
     friend_id: int
 
     class Config:
         orm_mode = True
+        from_attributes = True  # allow population from ORM objects
 
 class FriendOut(BaseModel):
     id: int
@@ -140,7 +149,8 @@ class FriendOut(BaseModel):
 
     class Config:
         orm_mode = True
-        
+        from_attributes = True  # allow population from ORM objects
+
 class FriendListOut(BaseModel):
     friends: List[FriendOut] = Field(default_factory=list)
     total: int = 0
@@ -151,3 +161,4 @@ class FriendListOut(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True  # allow population from ORM objects
