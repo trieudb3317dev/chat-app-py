@@ -68,7 +68,7 @@ class UserOut(BaseModel):
     date_of_birth: Optional[str] = None
     gender: Optional[str] = None
     role: Optional[str] = None
-    avatar_url: Optional[str] = None
+    avatar: Optional[str] = None
     # posts: List[PostOut] = []
     # items: List[ItemOut] = []
 
