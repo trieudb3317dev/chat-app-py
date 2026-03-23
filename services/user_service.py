@@ -145,7 +145,7 @@ def get_profile(db: Session, user_id: int) -> dict:
                 "phone_number": user.phone_number,
                 "date_of_birth": user.date_of_birth,
                 "gender": user.gender,
-                "avatar_url": user.avatar_url,
+                "avatar": user.avatar_url,
             }
         else:
             raise HTTPException(status_code=404, detail="User not found")
