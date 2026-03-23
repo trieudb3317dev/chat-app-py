@@ -24,12 +24,12 @@ def auth_required(request: Request, db: Session = Depends(get_db)):
     # `get_db()` is a FastAPI dependency that yields a Session; here we
     # accept `db: Session = Depends(get_db)` so we have a real Session
     # instance (not the generator object returned when calling get_db()).
-    is_verified = (
-        db.query(User).filter(User.id == user_id, User.is_verified == True).first()
-    )
-    print(f"auth_required: user_id={user_id}, is_verified={is_verified}")
-    if not is_verified:
-        raise HTTPException(status_code=403, detail="Account not verified")
+    # is_verified = (
+    #     db.query(User).filter(User.id == user_id, User.is_verified == True).first()
+    # )
+    # print(f"auth_required: user_id={user_id}, is_verified={is_verified}")
+    # if not is_verified:
+    #     raise HTTPException(status_code=403, detail="Account not verified")
 
     # Attach user_id to request state for access in route handlers
     request.state.user_id = user_id
