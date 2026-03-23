@@ -205,13 +205,23 @@ def list_friends(
         .limit(per_page)
         .all()
     )
-
+    
     # compute next/prev pages
     next_page = page + 1 if page * per_page < total else False
     prev_page = page - 1 if page > 1 else False
 
     return {
-        "friends": items,
+        "friends": [{
+            "id": user.id,
+            "username": user.username,
+            "full_name": getattr(user, "full_name", None),
+            "avatar": getattr(user, "avatar_url", None),
+            "email": getattr(user, "email", None),
+            "phone_number": getattr(user, "phone_number", None),
+            "date_of_birth": getattr(user, "date_of_birth", None),
+            "gender": getattr(user, "gender", None),
+            "created_at": getattr(user, "created_at", None),
+        } for user in items],
         "total": total,
         "page": page,
         "per_page": per_page,

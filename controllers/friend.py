@@ -103,7 +103,6 @@ def accept_friend(
 
 @router.get(
     "/friends/list",
-    response_model=s.FriendListOut,
     dependencies=[
         Depends(auth_required),
         Depends(rate_limit(max_requests=1000, window_seconds=60)),
